@@ -7,6 +7,8 @@ services:
       - "5050:3000"
     volumes:
       - vol-simple:/app/public/images/
+    networks:
+      - jenkins-net
 
   sonarqube:
     image: sonarqube:9.9.1-community
@@ -28,6 +30,8 @@ services:
       resources:
         limits:
           memory: 2g
+    networks:
+      - jenkins-net
 
   db:
     image: postgres:15
@@ -43,6 +47,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - jenkins-net
 
   jenkins:
     build: ./jenkins
@@ -58,6 +64,20 @@ services:
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     restart: unless-stopped
+    networks:
+      - jenkins-net
+
+  dind:
+    image: docker:24-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    ports:
+      - "2375:2375"
+    volumes:
+      - dind_data:/var/lib/docker
+    networks:
+      - jenkins-net
 
   agent:
     build: ./jenkins-agent
@@ -65,11 +85,12 @@ services:
     depends_on:
       - jenkins
     environment:
+      - DOCKER_HOST=tcp://dind:2375
       - JENKINS_URL=http://jenkins:8080
       - JENKINS_AGENT_NAME=devops1-agent
       - JENKINS_SECRET=572933c875c0d93f3edcac102f3d2e31c1bead3106d17cc49bb3b42ef0c94229
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jenkins-net
     restart: unless-stopped
 
 volumes:
@@ -79,3 +100,8 @@ volumes:
   sonarqube_logs:
   postgres_data:
   jenkins_home:
+  dind_data:
+
+networks:
+  jenkins-net:
+    driver: bridge

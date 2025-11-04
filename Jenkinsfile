@@ -42,8 +42,9 @@ pipeline {
         
         stage('Deploy') {
             steps {
-                sh'''
-                docker compose up --build -d
+                sh '''
+                docker compose build app
+                docker compose up -d app
                 '''
             }
         }
