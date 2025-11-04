@@ -43,8 +43,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                docker compose build app
-                docker compose up -d app
+                docker compose build simple-app
+                docker compose up -d simple-app
                 '''
             }
         }
