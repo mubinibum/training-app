@@ -43,9 +43,8 @@ pipeline {
        stage('Deploy') {
             steps {
                 sh '''
-                docker compose pull app || true
-                docker compose build --pull app
-                docker compose up -d --force-recreate app
+                docker compose build app
+                docker compose up -d --force-recreate --no-deps app
                 '''
             }
         }
