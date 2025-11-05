@@ -1,11 +1,6 @@
 pipeline {
     agent { label 'devops1-agent' }
 
-    environment {
-        SONAR_HOST_URL = 'http://sonarqube:9000'
-        SONAR_LOGIN = credentials('sonarqube-token') // Better to use Jenkins credentials
-    }
-
     stages {
         stage('Pull SCM') {
             steps {
@@ -82,7 +77,6 @@ pipeline {
         }
         always {
             echo 'Cleaning up workspace...'
-            cleanWs()
         }
     }
 }
