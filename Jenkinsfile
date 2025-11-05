@@ -13,7 +13,7 @@ pipeline {
             steps {
                 echo 'Installing dependencies...'
                 dir('app') {
-                    sh 'npm ci'
+                    sh 'npm install'
                 }
             }
         }
