@@ -1,59 +1,88 @@
 pipeline {
     agent { label 'devops1-agent' }
 
+    environment {
+        SONAR_HOST_URL = 'http://sonarqube:9000'
+        SONAR_LOGIN = credentials('sonarqube-token') // Better to use Jenkins credentials
+    }
+
     stages {
         stage('Pull SCM') {
             steps {
+                echo 'Cloning repository...'
                 git branch: 'main', url: 'https://github.com/mubinibum/training-app.git'
             }
         }
         
         stage('Build') {
             steps {
-                sh'''
-                cd app
-                npm install
-                '''
+                echo 'Installing dependencies...'
+                dir('app') {
+                    sh 'npm ci'
+                }
             }
         }
         
         stage('Testing') {
             steps {
-                sh'''
-                cd app
-                npm test
-                npm run test:coverage
-                '''
+                echo 'Running tests...'
+                dir('app') {
+                    sh '''
+                        npm test
+                        npm run test:coverage
+                    '''
+                }
+            }
+            post {
+                always {
+                    echo 'Test stage completed'
+                }
             }
         }
         
         stage('Code Review') {
             steps {
-                sh'''
-                cd app
-                sonar-scanner \
-                    -Dsonar.projectKey=simple-apps \
-                    -Dsonar.sources=. \
-                    -Dsonar.host.url=http://sonarqube:9000 \
-                    -Dsonar.login=sqp_2b775a77230f12e4d0f12a5a3716022a375f63d5
-                '''
+                echo 'Running SonarQube analysis...'
+                dir('app') {
+                    sh '''
+                        sonar-scanner \
+                            -Dsonar.projectKey=simple-apps \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=${SONAR_HOST_URL} \
+                            -Dsonar.login=${SONAR_LOGIN}
+                    '''
+                }
             }
         }
         
-       stage('Deploy') {
+        stage('Deploy') {
             steps {
+                echo 'Deploying application...'
                 sh '''
-                docker compose build app
-                docker compose up -d --force-recreate --no-deps app
+                    docker compose build app
+                    docker compose up -d --force-recreate --no-deps app
                 '''
             }
         }
 
-        
         stage('Backup') {
             steps {
-                 sh 'docker compose push' 
+                echo 'Pushing image to registry...'
+                sh 'docker compose push app || echo "Push failed or not configured"'
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+        always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
     }
 }

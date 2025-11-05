@@ -3,18 +3,21 @@ name: simple
 services:
   app:
     build: ./app
+    container_name: simple-app
     ports:
       - "5050:3000"
     volumes:
       - vol-simple:/app/public/images/
     networks:
       - jenkins-net
+    restart: unless-stopped
 
   sonarqube:
     image: sonarqube:9.9.1-community
     container_name: simple-sonarqube
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "9000:9000"
     environment:
@@ -32,6 +35,7 @@ services:
           memory: 2g
     networks:
       - jenkins-net
+    restart: unless-stopped
 
   db:
     image: postgres:15
@@ -49,6 +53,7 @@ services:
       retries: 5
     networks:
       - jenkins-net
+    restart: unless-stopped
 
   jenkins:
     build: ./jenkins
@@ -60,35 +65,27 @@ services:
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./Jenkinsfile:/var/jenkins_home/Jenkinsfile:ro
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - jenkins-net
     restart: unless-stopped
-    networks:
-      - jenkins-net
-
-  dind:
-    image: docker:24-dind
-    privileged: true
-    environment:
-      - DOCKER_TLS_CERTDIR=
-    ports:
-      - "2375:2375"
-    volumes:
-      - dind_data:/var/lib/docker
-    networks:
-      - jenkins-net
 
   agent:
     build: ./jenkins-agent
     container_name: simple-agent
+    user: root
     depends_on:
       - jenkins
     environment:
-      - DOCKER_HOST=tcp://dind:2375
       - JENKINS_URL=http://jenkins:8080
       - JENKINS_AGENT_NAME=devops1-agent
+      - JENKINS_AGENT_WORKDIR=/home/jenkins/agent
       - JENKINS_SECRET=572933c875c0d93f3edcac102f3d2e31c1bead3106d17cc49bb3b42ef0c94229
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - agent_workspace:/home/jenkins/agent
     networks:
       - jenkins-net
     restart: unless-stopped
@@ -100,7 +97,7 @@ volumes:
   sonarqube_logs:
   postgres_data:
   jenkins_home:
-  dind_data:
+  agent_workspace:
 
 networks:
   jenkins-net:
